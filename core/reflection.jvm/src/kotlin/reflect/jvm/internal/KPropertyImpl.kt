@@ -178,6 +178,10 @@ internal abstract class KPropertyImpl<out R> private constructor(
 
 
 private fun KPropertyImpl.Accessor<*, *>.computeCallerForAccessor(isGetter: Boolean): FunctionCaller<*> {
+    if (KDeclarationContainerImpl.LOCAL_PROPERTY_SIGNATURE.matches(property.signature)) {
+        return FunctionCaller.ThrowingCaller
+    }
+
     fun isInsideClassCompanionObject(): Boolean {
         val possibleCompanionObject = property.descriptor.containingDeclaration
         if (DescriptorUtils.isCompanionObject(possibleCompanionObject) && !DescriptorUtils.isInterface(possibleCompanionObject.containingDeclaration)) {
