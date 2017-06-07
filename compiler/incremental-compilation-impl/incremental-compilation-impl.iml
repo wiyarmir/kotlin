@@ -20,5 +20,6 @@
     <orderEntry type="library" name="junit-4.12" level="project" />
     <orderEntry type="module" module-name="js.frontend" />
     <orderEntry type="module" module-name="js.translator" />
+    <orderEntry type="module" module-name="js.serializer" />
   </component>
 </module>

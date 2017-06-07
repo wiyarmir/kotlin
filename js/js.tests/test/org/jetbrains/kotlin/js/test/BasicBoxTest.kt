@@ -297,7 +297,7 @@ abstract class BasicBoxTest(
             val serializedMetadata = mutableListOf<File>()
             val translationUnits = kotlinFiles.withIndex().map { (index, file) ->
                 if (file.recompile) {
-                    TranslationUnit.SourceFile(File(file.fileName))
+                    TranslationUnit.SourceFile(createPsiFile(file.fileName))
                 }
                 else {
                     serializedMetadata += File(incrementalDir, "$index.$METADATA_EXTENSION")
