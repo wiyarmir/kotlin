@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.incremental
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.vfs.VfsUtilCore
-import com.intellij.psi.PsiManager
 import com.intellij.util.io.PersistentEnumeratorBase
 import org.jetbrains.kotlin.annotation.AnnotationFileUpdater
 import org.jetbrains.kotlin.build.GeneratedFile
@@ -84,6 +83,25 @@ fun makeIncrementally(
     }
 }
 
+fun makeJsIncrementally(
+        cachesDir: File,
+        sourceRoots: Iterable<File>,
+        args: K2JSCompilerArguments,
+        messageCollector: MessageCollector = MessageCollector.NONE,
+        reporter: ICReporter = EmptyICReporter
+) {
+    val versions = commonCacheVersions(cachesDir) + standaloneCacheVersion(cachesDir)
+    val allKotlinFiles = sourceRoots.asSequence().flatMap { it.walk() }
+            .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }.toList()
+
+    withIC {
+        val compiler = IncrementalJsCompilerRunner(cachesDir, reporter)
+        compiler.compile(allKotlinFiles, args, messageCollector) {
+            it.sourceSnapshotMap.compareAndUpdate(allKotlinFiles)
+        }
+    }
+}
+
 private object EmptyICReporter : ICReporter {
     override fun report(message: ()->String) {
     }
@@ -111,9 +129,9 @@ class IncrementalJsCompilerRunner(
             allKotlinSources: List<File>,
             args: K2JSCompilerArguments,
             messageCollector: MessageCollector,
-            changedFiles: ChangedFiles
+            changedFiles: (JsGradleIncrementalCacheImpl)->ChangedFiles
     ): ExitCode {
-        var caches = JsIncrementalCache(cacheDirectory)
+        var caches = JsGradleIncrementalCacheImpl(cacheDirectory)
 
         fun onError(e: Exception): ExitCode {
             caches.clean()
@@ -128,12 +146,12 @@ class IncrementalJsCompilerRunner(
 
             // todo: warn?
             reporter.report { "Possible cache corruption. Rebuilding. $e" }
-            caches = JsIncrementalCache(cacheDirectory)
+            caches = JsGradleIncrementalCacheImpl(cacheDirectory)
             return compileIncrementally(args, caches, allKotlinSources, CompilationMode.Rebuild, messageCollector)
         }
 
         return try {
-            val compilationMode = calculateSourcesToCompile(caches, changedFiles, args)
+            val compilationMode = calculateSourcesToCompile(caches, changedFiles(caches), args)
             compileIncrementally(args, caches, allKotlinSources, compilationMode, messageCollector)
         }
         catch (e: PersistentEnumeratorBase.CorruptedException) {
@@ -209,7 +227,8 @@ class IncrementalJsCompilerRunner(
         assert(IncrementalCompilation.isEnabledForJs()) { "Incremental compilation is not enabled" }
 
         val allGeneratedFiles = hashSetOf<GeneratedFile<TargetId>>()
-        val dirtySources: MutableList<File>
+        var compilationMode = compilationMode
+        var dirtySources: MutableList<File>
 
         when (compilationMode) {
             is CompilationMode.Incremental -> {
@@ -221,6 +240,7 @@ class IncrementalJsCompilerRunner(
         }.run {} // run is added to force exhaustive when
 
         val allSourcesToCompile = HashSet<File>()
+        args.freeArgs.addAll(allKotlinSources.map { it.absolutePath })
 
         var exitCode = ExitCode.OK
         while (dirtySources.any()) {
@@ -235,6 +255,7 @@ class IncrementalJsCompilerRunner(
             val translationUnits = mutableListOf<TranslationUnit>()
             var fallbackMetadata: PackagesWithHeaderMetadata? = null
 
+            var headerMetadata: ByteArray? = null
             if (compilationMode is CompilationMode.Incremental) {
                 val translationResultsCache = cache.translationResults
 
@@ -242,7 +263,7 @@ class IncrementalJsCompilerRunner(
                     translationResultsCache.remove(dirtyFile)
                 }
 
-                val headerMetadata = metadataHeaderFile.readBytes()
+                headerMetadata = metadataHeaderFile.readBytes()
                 val packagesMetadata = mutableListOf<ByteArray>()
 
                 translationResultsCache.values().forEach {
@@ -254,19 +275,24 @@ class IncrementalJsCompilerRunner(
             }
 
             val (exitCode1, generatedFiles, metadataHeader) = compileChanged(sourcesToCompile.toSet(), translationUnits, fallbackMetadata, args, messageCollector)
-            metadataHeaderFile.writeBytes(metadataHeader!!)
             exitCode = exitCode1
 
-            if (exitCode == ExitCode.OK) {
-                //dirtySourcesSinceLastTimeFile.delete()
+            if (exitCode != ExitCode.OK) break
 
-            } else {
-                break
+            //dirtySourcesSinceLastTimeFile.delete()
+            var hasChanges = Arrays.equals(headerMetadata, metadataHeader!!)
+            metadataHeaderFile.writeBytes(metadataHeader)
+            generatedFiles!!.entries.forEach { (ktFile, fileTranslationResult) ->
+                hasChanges = hasChanges || cache.translationResults.put(ktFile.virtualFile.let { VfsUtilCore.virtualToIoFile(it) },
+                                                                        metadata = fileTranslationResult.metadata!!,
+                                                                        binaryAst = fileTranslationResult.binaryAst!!)
             }
 
-            if (compilationMode is CompilationMode.Rebuild) {
-                break
-            }
+
+            if (compilationMode is CompilationMode.Rebuild || !hasChanges) break
+
+            compilationMode = CompilationMode.Rebuild
+            dirtySources = allKotlinSources.toMutableList()
         }
 
         if (exitCode == ExitCode.OK) {

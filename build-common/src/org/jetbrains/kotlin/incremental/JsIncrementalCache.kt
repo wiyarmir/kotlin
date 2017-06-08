@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.incremental.storage.*
 import java.io.DataInput
 import java.io.DataOutput
 import java.io.File
+import java.util.*
 
 open class JsIncrementalCache(
         private val cachesDir: File
@@ -63,8 +64,11 @@ class TranslationResultMap(storageFile: File) : BasicStringMap<TranslationResult
     override fun dumpValue(value: TranslationResultValue): String =
             "Metadata: ${value.metadata.md5String()}, Binary AST: ${value.binaryAst.md5String()}"
 
-    fun put(file: File, metadata: ByteArray, binaryAst: ByteArray) {
+    fun put(file: File, metadata: ByteArray, binaryAst: ByteArray): Boolean {
+        val oldValue = storage[file.canonicalPath]
         storage[file.canonicalPath] = TranslationResultValue(metadata = metadata, binaryAst = binaryAst)
+
+        return oldValue != null && Arrays.equals(oldValue.metadata, metadata)
     }
 
     fun values(): Collection<TranslationResultValue> =
