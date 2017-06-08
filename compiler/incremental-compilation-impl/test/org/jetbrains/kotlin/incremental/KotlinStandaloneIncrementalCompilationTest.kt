@@ -20,6 +20,7 @@ import com.intellij.util.containers.HashMap
 import org.jetbrains.kotlin.TestWithWorkingDir
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.incremental.testingUtils.*
 import org.jetbrains.kotlin.incremental.utils.TestCompilationResult
@@ -44,6 +45,21 @@ class IncrementalJvmCompilerRunnerTest : IncrementalCompilerRunnerTestBase<K2JVM
                 moduleName = testDir.name
                 destination = destinationDir.path
                 classpathAsList = listOf(File(bootstrapKotlincLib, "kotlin-stdlib.jar"))
+            }
+}
+
+class IncrementalJsCompilerRunnerTest : IncrementalCompilerRunnerTestBase<K2JSCompilerArguments>() {
+    override fun make(cacheDir: File, sourceRoots: Iterable<File>, args: K2JSCompilerArguments): TestCompilationResult {
+        val reporter = TestICReporter()
+        val messageCollector = TestMessageCollector()
+        makeJsIncrementally(cacheDir, sourceRoots, args, reporter = reporter, messageCollector = messageCollector)
+        return TestCompilationResult(reporter, messageCollector)
+    }
+
+    override fun createCompilerArguments(destinationDir: File, testDir: File): K2JSCompilerArguments =
+            K2JSCompilerArguments().apply {
+                outputFile = File(destinationDir, "${testDir.name}.js").path
+                libraries = File(bootstrapKotlincLib, "kotlin-stdlib-js.jar").path
             }
 }
 
