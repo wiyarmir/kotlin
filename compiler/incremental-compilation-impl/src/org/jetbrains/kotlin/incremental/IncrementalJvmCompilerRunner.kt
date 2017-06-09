@@ -94,7 +94,7 @@ fun makeJsIncrementally(
     val allKotlinFiles = sourceRoots.asSequence().flatMap { it.walk() }
             .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }.toList()
 
-    withIC {
+    withJsIC {
         val compiler = IncrementalJsCompilerRunner(cachesDir, reporter)
         compiler.compile(allKotlinFiles, args, messageCollector) {
             it.sourceSnapshotMap.compareAndUpdate(allKotlinFiles)
@@ -116,6 +116,18 @@ inline fun <R> withIC(fn: ()->R): R {
     }
     finally {
         IncrementalCompilation.setIsEnabled(isEnabledBackup)
+    }
+}
+
+inline fun <R> withJsIC(fn: ()->R): R {
+    val isJsEnabledBackup = IncrementalCompilation.isEnabledForJs()
+    IncrementalCompilation.setIsEnabledForJs(true)
+
+    try {
+        return withIC { fn() }
+    }
+    finally {
+        IncrementalCompilation.setIsEnabledForJs(isJsEnabledBackup)
     }
 }
 
