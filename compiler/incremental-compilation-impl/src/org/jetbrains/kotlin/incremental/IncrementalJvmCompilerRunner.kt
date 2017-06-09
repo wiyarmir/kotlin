@@ -90,12 +90,12 @@ fun makeJsIncrementally(
         messageCollector: MessageCollector = MessageCollector.NONE,
         reporter: ICReporter = EmptyICReporter
 ) {
-    val versions = commonCacheVersions(cachesDir) + standaloneCacheVersion(cachesDir)
+    val versions = commonCacheVersions(cachesDir) + jsCacheVersion(cachesDir)
     val allKotlinFiles = sourceRoots.asSequence().flatMap { it.walk() }
             .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }.toList()
 
     withJsIC {
-        val compiler = IncrementalJsCompilerRunner(cachesDir, reporter)
+        val compiler = IncrementalJsCompilerRunner(cachesDir, versions, reporter)
         compiler.compile(allKotlinFiles, args, messageCollector) {
             it.sourceSnapshotMap.compareAndUpdate(allKotlinFiles)
         }
@@ -133,6 +133,7 @@ inline fun <R> withJsIC(fn: ()->R): R {
 
 class IncrementalJsCompilerRunner(
         workingDir: File,
+        private val cacheVersions: List<CacheVersion>,
         private val reporter: ICReporter
 ) {
     private val cacheDirectory = File(workingDir, CACHES_DIR_NAME)
@@ -239,6 +240,7 @@ class IncrementalJsCompilerRunner(
         assert(IncrementalCompilation.isEnabledForJs()) { "Incremental compilation is not enabled" }
 
         val allGeneratedFiles = hashSetOf<GeneratedFile<TargetId>>()
+        @Suppress("NAME_SHADOWING")
         var compilationMode = compilationMode
         var dirtySources: MutableList<File>
 
@@ -300,7 +302,6 @@ class IncrementalJsCompilerRunner(
                                                                         binaryAst = fileTranslationResult.binaryAst!!)
             }
 
-
             if (compilationMode is CompilationMode.Rebuild || !hasChanges) break
 
             compilationMode = CompilationMode.Rebuild
@@ -308,7 +309,7 @@ class IncrementalJsCompilerRunner(
         }
 
         if (exitCode == ExitCode.OK) {
-            //todo cacheVersions.forEach { it.saveIfNeeded() }
+            cacheVersions.forEach { it.saveIfNeeded() }
         }
 
         return exitCode
