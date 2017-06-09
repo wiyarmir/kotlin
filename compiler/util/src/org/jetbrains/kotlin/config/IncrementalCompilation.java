@@ -27,7 +27,7 @@ public class IncrementalCompilation {
     }
 
     public static boolean isEnabledForJs() {
-        return !"false".equals(System.getProperty(INCREMENTAL_COMPILATION_JS_PROPERTY));
+        return "true".equals(System.getProperty(INCREMENTAL_COMPILATION_JS_PROPERTY));
     }
 
     @TestOnly
