@@ -48,12 +48,15 @@ import org.jetbrains.kotlin.js.facade.K2JSTranslator
 import org.jetbrains.kotlin.js.facade.MainCallParameters
 import org.jetbrains.kotlin.js.facade.TranslationResult
 import org.jetbrains.kotlin.js.facade.TranslationUnit
-import org.jetbrains.kotlin.js.translate.general.FileTranslationResult
+import org.jetbrains.kotlin.js.incremental.IncrementalJsService
+import org.jetbrains.kotlin.js.incremental.IncrementalJsServiceImpl
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.modules.TargetId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.serialization.ProtoBuf
+import org.jetbrains.kotlin.serialization.js.JsProtoBuf
 import org.jetbrains.kotlin.serialization.js.PackagesWithHeaderMetadata
 import java.io.File
 import java.io.IOException
@@ -288,18 +291,26 @@ class IncrementalJsCompilerRunner(
                 fallbackMetadata = PackagesWithHeaderMetadata(headerMetadata, packagesMetadata)
             }
 
-            val (exitCode1, generatedFiles, metadataHeader) = compileChanged(sourcesToCompile.toSet(), translationUnits, fallbackMetadata, args, messageCollector)
-            exitCode = exitCode1
+
+            val incrementalService = IncrementalJsServiceImpl()
+            val services = Services.Builder().run {
+                register(IncrementalJsService::class.java, incrementalService)
+                build()
+            }
+
+            exitCode = compileChanged(sourcesToCompile.toSet(), translationUnits,
+                                      fallbackMetadata, args, messageCollector,
+                                      services)
 
             if (exitCode != ExitCode.OK) break
 
             //dirtySourcesSinceLastTimeFile.delete()
-            var hasChanges = Arrays.equals(headerMetadata, metadataHeader!!)
+            val metadataHeader = incrementalService.headerProto!!.toByteArray()
+            var hasChanges = Arrays.equals(headerMetadata, metadataHeader)
             metadataHeaderFile.writeBytes(metadataHeader)
-            generatedFiles!!.entries.forEach { (ktFile, fileTranslationResult) ->
-                hasChanges = hasChanges || cache.translationResults.put(ktFile.virtualFile.let { VfsUtilCore.virtualToIoFile(it) },
-                                                                        metadata = fileTranslationResult.metadata!!,
-                                                                        binaryAst = fileTranslationResult.binaryAst!!)
+
+            incrementalService.packageParts.forEach { (file, proto, ast) ->
+                hasChanges = hasChanges || cache.translationResults.put(file, metadata = proto.toByteArray()!!, binaryAst = ast)
             }
 
             if (compilationMode is CompilationMode.Rebuild || !hasChanges) break
@@ -320,14 +331,11 @@ class IncrementalJsCompilerRunner(
             additionalTranslationUnits: List<TranslationUnit>,
             fallbackMetadata: PackagesWithHeaderMetadata?,
             args: K2JSCompilerArguments,
-            messageCollector: MessageCollector
-    ): CompileChangedResults {
+            messageCollector: MessageCollector,
+            services: Services
+    ): ExitCode {
         val compiler = object : K2JSCompiler() {
-            var translationResults: Map<KtFile, FileTranslationResult>? = null
-            var translatedMetadataHeader: ByteArray? = null
-
             override fun createJsEnvironment(configuration: CompilerConfiguration, rootDisposable: Disposable): KotlinCoreEnvironment {
-                configuration.put(JSConfigurationKeys.SERIALIZE_FRAGMENTS, true)
                 fallbackMetadata?.let { configuration.put(JSConfigurationKeys.FALLBACK_METADATA, it) }
                 return super.createJsEnvironment(configuration, rootDisposable)
             }
@@ -346,12 +354,7 @@ class IncrementalJsCompilerRunner(
                             else -> allKotlinFiles
                         }
                 val translationUnits = ktSourceToCompile.map { TranslationUnit.SourceFile(it) }
-                val result = K2JSTranslator(config).translateUnits(translationUnits + additionalTranslationUnits, mainCallParameters, jsAnalysisResult)
-                (result as? TranslationResult.Success)?.apply {
-                    translationResults = fileTranslationResults
-                    translatedMetadataHeader = metadataHeader
-                }
-                return result
+                return K2JSTranslator(config).translateUnits(translationUnits + additionalTranslationUnits, mainCallParameters, jsAnalysisResult)
             }
         }
 
@@ -362,17 +365,11 @@ class IncrementalJsCompilerRunner(
 
         //reporter.report { "compiling with args: ${ArgumentUtils.convertArgumentsToStringList(args)}" }
         //reporter.report { "compiling with classpath: ${classpath.toList().sorted().joinToString()}" }
-        val exitCode = compiler.exec(messageCollector, Services.EMPTY, args)
-        //val generatedFiles = outputItemCollector.generatedFiles(targets, targets.first(), {sourcesToCompile}, {outputDir})
-        reporter.reportCompileIteration(sourcesToCompile, exitCode)
-        return CompileChangedResults(exitCode, compiler.translationResults, compiler.translatedMetadataHeader)
 
+        return compiler.exec(messageCollector, services, args).also { exitCode ->
+            reporter.reportCompileIteration(sourcesToCompile, exitCode)
+        }
     }
-
-    private data class CompileChangedResults(
-            val exitCode: ExitCode,
-            val generatedFiles: Map<KtFile, FileTranslationResult>?,
-            val metadaHeader: ByteArray?)
 
     companion object {
         const val CACHES_DIR_NAME = "caches-js"
