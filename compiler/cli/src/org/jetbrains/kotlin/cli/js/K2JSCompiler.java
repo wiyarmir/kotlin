@@ -51,6 +51,7 @@ import org.jetbrains.kotlin.js.facade.K2JSTranslator;
 import org.jetbrains.kotlin.js.facade.MainCallParameters;
 import org.jetbrains.kotlin.js.facade.TranslationResult;
 import org.jetbrains.kotlin.js.facade.exceptions.TranslationException;
+import org.jetbrains.kotlin.js.incremental.IncrementalJsService;
 import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus;
 import org.jetbrains.kotlin.psi.KtFile;
 import org.jetbrains.kotlin.serialization.js.ModuleKind;
@@ -311,6 +312,11 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
             );
         }
         configuration.put(JSConfigurationKeys.MODULE_KIND, moduleKind);
+
+        IncrementalJsService incrementalService = services.get(IncrementalJsService.class);
+        if (incrementalService != null) {
+            configuration.put(JSConfigurationKeys.INCREMENTAL_SERVICE, incrementalService);
+        }
     }
 
     private static MainCallParameters createMainCallParameters(String main) {
