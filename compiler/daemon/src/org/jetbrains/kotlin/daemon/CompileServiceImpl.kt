@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.daemon
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.impl.ZipHandler
 import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import org.jetbrains.kotlin.cli.common.CLICompiler
@@ -38,7 +39,6 @@ import org.jetbrains.kotlin.cli.common.repl.ReplCompileResult
 import org.jetbrains.kotlin.cli.common.repl.ReplEvalResult
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.metadata.K2MetadataCompiler
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.daemon.common.*
@@ -841,7 +841,7 @@ class CompileServiceImpl(
 
     override fun clearJarCache() {
         ZipHandler.clearFileAccessorCache()
-        (KotlinCoreEnvironment.applicationEnvironment?.jarFileSystem as? CoreJarFileSystem)?.clearHandlersCache()
+        (StandardFileSystems.jar() as? CoreJarFileSystem)?.clearHandlersCache()
     }
 
     private fun<R> ifAlive(minAliveness: Aliveness = Aliveness.Alive,
