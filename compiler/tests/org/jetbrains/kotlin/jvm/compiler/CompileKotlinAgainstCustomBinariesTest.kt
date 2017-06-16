@@ -356,7 +356,7 @@ class CompileKotlinAgainstCustomBinariesTest : AbstractKotlinCompilerIntegration
     fun testInnerClassPackageConflict() {
         val output = compileLibrary("library", destination = File(tmpdir, "library"))
         File(testDataDirectory, "library/test/Foo/x.txt").copyTo(File(output, "test/Foo/x.txt"))
-        MockLibraryUtil.createJarFile(tmpdir, output, null, "library", false)
+        MockLibraryUtil.createJarFile(tmpdir, output, "library")
         compileKotlin("source.kt", tmpdir, listOf(File(tmpdir, "library.jar")))
     }
 
