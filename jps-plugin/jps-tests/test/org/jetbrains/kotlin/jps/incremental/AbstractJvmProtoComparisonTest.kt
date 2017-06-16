@@ -40,7 +40,7 @@ abstract class AbstractJvmProtoComparisonTest : AbstractProtoComparisonTest<Loca
     override fun difference(oldData: LocalFileKotlinClass, newData: LocalFileKotlinClass): Difference? {
         val oldProto = oldData.readProto() ?: return null
         val newProto = newData.readProto() ?: return null
-        return org.jetbrains.kotlin.incremental.difference(oldProto, newProto)
+        return difference(oldProto, newProto)
     }
 
     private fun KotlinJvmBinaryClass.readProto(): ProtoMapValue? {
