@@ -17,9 +17,13 @@
 package org.jetbrains.kotlin.jps.incremental
 
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.incremental.ClassProtoData
 import org.jetbrains.kotlin.incremental.Difference
+import org.jetbrains.kotlin.incremental.PackagePartProtoData
+import org.jetbrains.kotlin.incremental.ProtoData
 import org.jetbrains.kotlin.incremental.utils.TestMessageCollector
 import org.jetbrains.kotlin.js.incremental.IncrementalJsService
 import org.jetbrains.kotlin.js.incremental.IncrementalJsServiceImpl
@@ -33,13 +37,8 @@ import org.jetbrains.kotlin.serialization.js.JsProtoBuf
 import org.junit.Assert
 import java.io.File
 
-sealed class JsProtoData(val nameResolver: NameResolver) {
-    class ClassProto(val classData: ProtoBuf.Class, nameResolver: NameResolver) : JsProtoData(nameResolver)
-    class PackagePartProto(val packagePartData: ProtoBuf.Package, nameResolver: NameResolver) : JsProtoData(nameResolver)
-}
-
-abstract class AbstractJsProtoComparisonTest : AbstractProtoComparisonTest<JsProtoData>() {
-    override fun compileAndGetClasses(sourceDir: File, outputDir: File): Map<ClassId, JsProtoData> {
+abstract class AbstractJsProtoComparisonTest : AbstractProtoComparisonTest<ProtoData>() {
+    override fun compileAndGetClasses(sourceDir: File, outputDir: File): Map<ClassId, ProtoData> {
         val incrementalService = IncrementalJsServiceImpl()
         // todo: find out if it is safe to call directly
         val services = Services.Builder().run {
@@ -52,6 +51,7 @@ abstract class AbstractJsProtoComparisonTest : AbstractProtoComparisonTest<JsPro
         val args = K2JSCompilerArguments().apply {
             outputFile = File(outputDir, "out.js").canonicalPath
             metaInfo = true
+            main = K2JsArgumentConstants.NO_CALL
             freeArgs.addAll(ktFiles)
         }
 
@@ -61,60 +61,30 @@ abstract class AbstractJsProtoComparisonTest : AbstractProtoComparisonTest<JsPro
             Assert.assertEquals(expectedOutput, actualOutput)
         }
 
-        val classes = hashMapOf<ClassId, JsProtoData>()
+        val classes = hashMapOf<ClassId, ProtoData>()
 
         for ((sourceFile, proto) in incrementalService.packageParts) {
             val nameResolver = NameResolverImpl(proto.strings, proto.qualifiedNames)
 
             proto.class_List.forEach {
                 val classId = nameResolver.getClassId(it.fqName)
-                classes[classId] = JsProtoData.ClassProto(it, nameResolver)
+                classes[classId] = ClassProtoData(it, nameResolver)
             }
 
-            val packagePartProto = proto.`package`
-            val packageFqName = if (packagePartProto.hasExtension(JsProtoBuf.packageFqName)) {
-                nameResolver.getPackageFqName(packagePartProto.getExtension(JsProtoBuf.packageFqName))
-            }
-            else FqName.ROOT
+            proto.`package`.apply {
+                val packageFqName = if (hasExtension(JsProtoBuf.packageFqName)) {
+                    nameResolver.getPackageFqName(getExtension(JsProtoBuf.packageFqName))
+                }
+                else FqName.ROOT
 
-            val packagePartClassId = ClassId(packageFqName, Name.identifier(sourceFile.nameWithoutExtension + "Kt"))
-            classes[packagePartClassId] = JsProtoData.PackagePartProto(packagePartProto, nameResolver)
+                val packagePartClassId = ClassId(packageFqName, Name.identifier(sourceFile.nameWithoutExtension.capitalize() + "Kt"))
+                classes[packagePartClassId] = PackagePartProtoData(this, nameResolver)
+            }
         }
 
         return classes
     }
 
-    override fun difference(oldData: JsProtoData, newData: JsProtoData): Difference? {
-        /*val oldNameResolver = NameResolverImpl(old.strings, old.qualifiedNames)
-        val newNameResolver = NameResolverImpl(new.strings, new.qualifiedNames)
-        val compare = ProtoCompareGenerated(oldNameResolver, newNameResolver)
-
-        val packageDiff = compare.difference(old.`package`, old.`package`)
-
-        val oldClasses = old.class_List.map { oldNameResolver.getClassId(it.fqName) to it }.toMap()
-        val newClasses = new.class_List.map { newNameResolver.getClassId(it.fqName) to it }.toMap()
-
-        val addedClasses = arrayListOf<ClassId>()
-        val removedClasses = arrayListOf<ClassId>()
-        val modifiedClasses = hashMapOf<ClassId, EnumSet<ProtoCompareGenerated.ProtoBufClassKind>>()
-
-        for (classId in oldClasses.keys + newClasses.keys) {
-            val oldProto = oldClasses[classId]
-            val newProto = newClasses[classId]
-
-            when {
-                oldProto == null -> {
-                    addedClasses.add(classId)
-                }
-                newProto == null -> {
-                    removedClasses.add(classId)
-                }
-                else -> {
-                    modifiedClasses[classId] = compare.difference(oldProto, newProto)
-                }
-            }
-        }*/
-
-        return null
-    }
+    override fun difference(oldData: ProtoData, newData: ProtoData): Difference? =
+            org.jetbrains.kotlin.incremental.difference(oldData, newData)
 }
