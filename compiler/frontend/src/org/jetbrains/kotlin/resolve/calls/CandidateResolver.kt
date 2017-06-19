@@ -501,7 +501,7 @@ class CandidateResolver(
             tracing.wrongReceiverType(
                     trace, receiverParameter, receiverArgument,
                     this.replaceCallPosition(CallPosition.ExtensionReceiverPosition(candidateCall)))
-            return OTHER_ERROR
+            return UNSTABLE_SMARTCAST_ERROR
         }
 
         // Here we know that receiver is OK ignoring nullability and check that nullability is OK too
@@ -559,7 +559,7 @@ class CandidateResolver(
                 }
                 if (!smartCastResult.isCorrect) {
                     // Error about unstable smart cast reported within checkAndRecordPossibleCast
-                    return OTHER_ERROR
+                    return UNSTABLE_SMARTCAST_ERROR
                 }
             }
         }
