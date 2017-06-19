@@ -23,11 +23,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.ClassFileViewProvider
+import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
+import com.intellij.psi.impl.compiled.ClsElementImpl
 import com.intellij.psi.impl.compiled.ClsFileImpl
 import com.intellij.psi.impl.java.stubs.PsiJavaFileStub
 import com.intellij.psi.impl.java.stubs.impl.PsiJavaFileStubImpl
+import com.intellij.psi.impl.source.SourceTreeToPsiMap
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.name.FqName
@@ -90,7 +93,20 @@ private fun createJavaFileStub(project: Project, packageFqName: FqName, files: C
 
         override fun isPhysical() = false
 
-        override fun getMirror(): PsiElement? = manager.findFile(virtualFile)
+        private val mirrorTreeElement by lazy {
+            manager.findFile(virtualFile)?.let { findFile ->
+                SourceTreeToPsiMap.psiToTreeNotNull(findFile)
+                        .apply {
+                            setMirrorCheckingType(this, null)
+                            val arrayOfPsiClasss = classes
+                            ClsElementImpl.setMirrors(arrayOfPsiClasss,
+                                                      (findFile as PsiClassOwner).classes.take(arrayOfPsiClasss.size)
+                                                              .toTypedArray())
+                        }
+            }
+        }
+
+        override fun getMirror(): PsiElement? = mirrorTreeElement?.psi
     }
 
     javaFileStub.psi = fakeFile
