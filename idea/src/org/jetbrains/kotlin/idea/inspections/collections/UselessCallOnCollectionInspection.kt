@@ -16,24 +16,25 @@
 
 package org.jetbrains.kotlin.idea.inspections.collections
 
-import com.intellij.codeInspection.IntentionWrapper
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.openapi.util.TextRange
-import org.jetbrains.kotlin.idea.quickfix.ReplaceWithDotCallFix
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtQualifiedExpression
-import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
 import org.jetbrains.kotlin.psi.psiUtil.endOffset
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
 import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.callUtil.getType
 import org.jetbrains.kotlin.types.TypeUtils
+import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
 
-class UselessCallOnNotNullInspection : AbstractUselessCallInspection() {
-    override val uselessFqNames = mapOf("kotlin.collections.orEmpty" to deleteConversion,
-                                        "kotlin.text.orEmpty" to deleteConversion,
-                                        "kotlin.text.isNullOrEmpty" to Conversion("isEmpty"),
-                                        "kotlin.text.isNullOrBlank" to Conversion("isBlank"))
+class UselessCallOnCollectionInspection : AbstractUselessCallInspection() {
+    override val uselessFqNames = mapOf("kotlin.collections.filterNotNull" to deleteConversion,
+                                        "kotlin.collections.filterIsInstance" to deleteConversion,
+                                        "kotlin.collections.mapNotNull" to Conversion("map"),
+                                        "kotlin.collections.mapNotNullTo" to Conversion("mapTo"),
+                                        "kotlin.collections.mapIndexedNotNull" to Conversion("mapIndexed"),
+                                        "kotlin.collections.mapIndexedNotNullTo" to Conversion("mapIndexedTo"))
 
     override val uselessNames = uselessFqNames.keys.toShortNames()
 
@@ -43,42 +44,42 @@ class UselessCallOnNotNullInspection : AbstractUselessCallInspection() {
             context: BindingContext,
             conversion: Conversion
     ) {
-        val newName = conversion.replacementName
+        val receiverType = expression.receiverExpression.getType(context) ?: return
+        val receiverTypeArgument = receiverType.arguments.singleOrNull()?.type ?: return
+        if (calleeExpression.name == "filterIsInstance") {
+            val resolvedCall = expression.getResolvedCall(context) ?: return
+            val typeParameterDescriptorOfIsInstance = resolvedCall.resultingDescriptor.typeParameters.singleOrNull() ?: return
+            if (!receiverTypeArgument.isSubtypeOf(typeParameterDescriptorOfIsInstance.defaultType)) return
+        }
+        else {
+            // xxxNotNull
+            if (TypeUtils.isNullableType(receiverTypeArgument)) return
+        }
 
-        val safeExpression = expression as? KtSafeQualifiedExpression
-        val notNullType = expression.receiverExpression.getType(context)?.let { TypeUtils.isNullableType(it) } == false
+        val newName = conversion.replacementName
         if (newName != null) {
             val descriptor = holder.manager.createProblemDescriptor(
                     expression,
                     TextRange(expression.operationTokenNode.startOffset - expression.startOffset,
                               calleeExpression.endOffset - expression.startOffset),
-                    "Call on not-null type may be reduced",
+                    "Call on collection type may be reduced",
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
                     isOnTheFly,
                     RenameUselessCallFix(newName)
             )
             holder.registerProblem(descriptor)
         }
-        else if (notNullType) {
+        else {
             val descriptor = holder.manager.createProblemDescriptor(
                     expression,
                     TextRange(expression.operationTokenNode.startOffset - expression.startOffset,
                               calleeExpression.endOffset - expression.startOffset),
-                    "Useless call on not-null type",
+                    "Useless call on collection type",
                     ProblemHighlightType.LIKE_UNUSED_SYMBOL,
                     isOnTheFly,
                     RemoveUselessCallFix()
             )
             holder.registerProblem(descriptor)
         }
-        else if (safeExpression != null) {
-            holder.registerProblem(
-                    safeExpression.operationTokenNode.psi,
-                    "This call is useless with ?.",
-                    ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
-                    IntentionWrapper(ReplaceWithDotCallFix(safeExpression), safeExpression.containingKtFile)
-            )
-        }
     }
 }
-
