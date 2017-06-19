@@ -30,14 +30,17 @@ import org.jetbrains.kotlin.js.incremental.IncrementalJsServiceImpl
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.serialization.ProtoBuf
-import org.jetbrains.kotlin.serialization.deserialization.NameResolver
 import org.jetbrains.kotlin.serialization.deserialization.NameResolverImpl
 import org.jetbrains.kotlin.serialization.js.JsProtoBuf
 import org.junit.Assert
 import java.io.File
 
 abstract class AbstractJsProtoComparisonTest : AbstractProtoComparisonTest<ProtoData>() {
+    override fun expectedOutputFile(testDir: File): File =
+        File(testDir, "js.result.out")
+                .takeIf { it.exists() }
+                ?: super.expectedOutputFile(testDir)
+
     override fun compileAndGetClasses(sourceDir: File, outputDir: File): Map<ClassId, ProtoData> {
         val incrementalService = IncrementalJsServiceImpl()
         // todo: find out if it is safe to call directly

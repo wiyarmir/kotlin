@@ -29,6 +29,9 @@ abstract class AbstractProtoComparisonTest<PROTO_DATA> : UsefulTestCase() {
     protected abstract fun compileAndGetClasses(sourceDir: File, outputDir: File): Map<ClassId, PROTO_DATA>
     protected abstract fun difference(oldData: PROTO_DATA, newData: PROTO_DATA): Difference?
 
+    protected open fun expectedOutputFile(testDir: File): File =
+        File(testDir, "result.out")
+
     fun doTest(testDataPath: String) {
         val testDir = File(testDataPath)
         val workingDir = KotlinTestUtils.tmpDir("testDirectory")
@@ -69,7 +72,7 @@ abstract class AbstractProtoComparisonTest<PROTO_DATA> : UsefulTestCase() {
             p.println("CHANGES in $classId: ${changes.joinToString()}")
         }
 
-        KotlinTestUtils.assertEqualsToFile(File(testDataPath + File.separator + "result.out"), sb.toString())
+        KotlinTestUtils.assertEqualsToFile(expectedOutputFile(testDir), sb.toString())
     }
 
     private fun classesForPrefixedSources(testDir: File, workingDir: File, prefix: String): Map<ClassId, PROTO_DATA> {
