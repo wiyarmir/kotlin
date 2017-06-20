@@ -24,6 +24,7 @@ public enum ResolutionStatus {
     UNKNOWN_STATUS,
     UNSAFE_CALL_ERROR,
     WRONG_NUMBER_OF_TYPE_ARGUMENTS_ERROR,
+    INVISIBLE_MEMBER_ERROR,
     OTHER_ERROR,
     UNSTABLE_SMARTCAST_ERROR,
     ARGUMENTS_MAPPING_ERROR,
@@ -42,6 +43,7 @@ public enum ResolutionStatus {
             EnumSet.of(UNSAFE_CALL_ERROR), // weakest
             EnumSet.of(WRONG_NUMBER_OF_TYPE_ARGUMENTS_ERROR),
             EnumSet.of(UNSTABLE_SMARTCAST_ERROR),
+            EnumSet.of(INVISIBLE_MEMBER_ERROR),
             EnumSet.of(OTHER_ERROR),
             EnumSet.of(ARGUMENTS_MAPPING_ERROR),
             EnumSet.of(RECEIVER_TYPE_ERROR),
