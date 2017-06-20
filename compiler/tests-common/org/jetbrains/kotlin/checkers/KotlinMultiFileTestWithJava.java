@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.checkers;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.io.FileUtil;
 import kotlin.collections.CollectionsKt;
 import kotlin.io.FilesKt;
@@ -25,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles;
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
 import org.jetbrains.kotlin.config.CompilerConfiguration;
+import org.jetbrains.kotlin.config.ContentRoot;
 import org.jetbrains.kotlin.config.ContentRootsKt;
 import org.jetbrains.kotlin.config.JVMConfigurationKeys;
 import org.jetbrains.kotlin.script.StandardScriptDefinition;
@@ -40,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 public abstract class KotlinMultiFileTestWithJava<M, F> extends KotlinTestWithEnvironment {
+    private static final Logger LOG = Logger.getInstance(KotlinMultiFileTestWithJava.class);
     private File javaFilesDir;
     private File kotlinSourceRoot;
 
@@ -69,6 +72,9 @@ public abstract class KotlinMultiFileTestWithJava<M, F> extends KotlinTestWithEn
         if (isKotlinSourceRootNeeded()) {
             kotlinSourceRoot = KotlinTestUtils.tmpDir("kotlin-src");
             ContentRootsKt.addKotlinSourceRoot(configuration, kotlinSourceRoot.getPath());
+        }
+        for (ContentRoot root: configuration.getList(JVMConfigurationKeys.CONTENT_ROOTS)) {
+            LOG.info("root: " + root.toString());
         }
         return KotlinCoreEnvironment.createForTests(getTestRootDisposable(), configuration, getEnvironmentConfigFiles());
     }
