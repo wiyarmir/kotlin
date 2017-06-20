@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.js.JavaScript
+import org.jetbrains.kotlin.js.backend.JsToStringGenerationVisitor
 import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.config.EcmaVersion
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
@@ -42,7 +43,6 @@ import org.jetbrains.kotlin.js.dce.InputFile
 import org.jetbrains.kotlin.js.facade.*
 import org.jetbrains.kotlin.js.parser.parse
 import org.jetbrains.kotlin.js.parser.sourcemaps.*
-import org.jetbrains.kotlin.js.sourceMap.JsSourceGenerationVisitor
 import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver
 import org.jetbrains.kotlin.js.sourceMap.SourceMap3Builder
 import org.jetbrains.kotlin.js.test.utils.*
@@ -159,7 +159,7 @@ abstract class BasicBoxTest(
 
             val expectedReachableNodesMatcher = EXPECTED_REACHABLE_NODES.matcher(fileContent)
             val expectedReachableNodesFound = expectedReachableNodesMatcher.find()
-            val skipMinification = System.getProperty("kotlin.js.skipMinificationTest", "false").toBoolean()
+            val skipMinification = true //System.getProperty("kotlin.js.skipMinificationTest", "false").toBoolean()
             if (!skipMinification &&
                 (runMinifierByDefault || expectedReachableNodesFound) &&
                 !SKIP_MINIFICATION.matcher(fileContent).find()
@@ -426,12 +426,12 @@ abstract class BasicBoxTest(
             }
         })
         removeLocationFromBlocks(generatedProgram)
-        generatedProgram.accept(AmbiguousAstSourcePropagation())
+        //generatedProgram.accept(AmbiguousAstSourcePropagation())
 
         val output = TextOutputImpl()
         val pathResolver = SourceFilePathResolver(mutableListOf(File(".")))
-        val sourceMapBuilder = SourceMap3Builder(outputFile, output, "", SourceMapBuilderConsumer(pathResolver, false, false))
-        generatedProgram.accept(JsSourceGenerationVisitor(output, sourceMapBuilder))
+        val sourceMapBuilder = SourceMap3Builder(outputFile, output, "")
+        generatedProgram.accept(JsToStringGenerationVisitor(output, SourceMapBuilderConsumer(sourceMapBuilder, pathResolver, false, false)))
         val code = output.toString()
         val generatedSourceMap = sourceMapBuilder.build()
 
@@ -446,7 +446,9 @@ abstract class BasicBoxTest(
             is SourceMapError -> error("Could not parse source map: ${sourceMapParseResult.message}")
         }
 
-        val remapper = SourceMapLocationRemapper(mapOf(outputFile.path to sourceMap))
+        //sourceMap.debug()
+
+        val remapper = SourceMapLocationRemapper(sourceMap)
         remapper.remap(parsedProgram)
 
         val codeWithRemappedLines = parsedProgram.toStringWithLineNumbers()
