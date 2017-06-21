@@ -446,7 +446,7 @@ abstract class BasicBoxTest(
             is SourceMapError -> error("Could not parse source map: ${sourceMapParseResult.message}")
         }
 
-        //sourceMap.debug()
+        sourceMap.debug()
 
         val remapper = SourceMapLocationRemapper(sourceMap)
         remapper.remap(parsedProgram)
