@@ -426,7 +426,7 @@ abstract class BasicBoxTest(
             }
         })
         removeLocationFromBlocks(generatedProgram)
-        //generatedProgram.accept(AmbiguousAstSourcePropagation())
+        generatedProgram.accept(AmbiguousAstSourcePropagation())
 
         val output = TextOutputImpl()
         val pathResolver = SourceFilePathResolver(mutableListOf(File(".")))
@@ -445,8 +445,6 @@ abstract class BasicBoxTest(
             is SourceMapSuccess -> sourceMapParseResult.value
             is SourceMapError -> error("Could not parse source map: ${sourceMapParseResult.message}")
         }
-
-        sourceMap.debug()
 
         val remapper = SourceMapLocationRemapper(sourceMap)
         remapper.remap(parsedProgram)

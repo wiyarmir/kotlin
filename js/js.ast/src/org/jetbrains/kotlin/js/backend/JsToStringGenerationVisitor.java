@@ -462,16 +462,15 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
     @Override
     public void visitDoWhile(@NotNull JsDoWhile x) {
-        pushSourceInfo(x.getSource());
+        sourceLocationConsumer.pushSourceInfo(null);
 
         p.print(CHARS_DO);
         nestedPush(x.getBody());
-        sourceLocationConsumer.pushSourceInfo(null);
         accept(x.getBody());
         sourceLocationConsumer.popSourceInfo();
         nestedPop(x.getBody());
 
-        pushSourceInfo(x.getSource());
+        pushSourceInfo(x.getCondition().getSource());
         if (needSemi) {
             semi();
             newlineOpt();
