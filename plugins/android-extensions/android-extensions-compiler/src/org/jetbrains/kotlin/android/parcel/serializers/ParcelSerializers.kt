@@ -23,6 +23,8 @@ import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
 private val PARCEL_TYPE = Type.getObjectType("android/os/Parcel")
 
 internal object GenericParcelSerializer : ParcelSerializer {
+    override val asmType: Type = Type.getObjectType("java/lang/Object")
+
     override fun writeValue(v: InstructionAdapter) {
         v.invokevirtual(PARCEL_TYPE.internalName, "writeValue", "(Ljava/lang/Object;)V", false)
     }
@@ -32,63 +34,178 @@ internal object GenericParcelSerializer : ParcelSerializer {
     }
 }
 
-internal class CollectionParcelSerializer(val asmType: Type, val elementSerializer: ParcelSerializer) : ParcelSerializer {
+internal class ArrayParcelSerializer(override val asmType: Type, private val elementSerializer: ParcelSerializer) : ParcelSerializer {
+    override fun writeValue(v: InstructionAdapter) {
+        v.dupX1() // -> arr, parcel, arr
+        v.arraylength() // -> arr, parcel, length
+        v.dup2X1() // -> parcel, length, arr, parcel, length
+
+        // Write array size
+        v.invokevirtual(PARCEL_TYPE.internalName, "writeInt", "(I)V", false) // -> parcel, length, arr
+        v.swap() // -> parcel, arr, length
+        v.aconst(0) // -> parcel, arr, length, <index>
+
+        val labelLoop = Label()
+        val labelReturn = Label()
+
+        v.visitLabel(labelLoop)
+
+        // Loop
+        v.dup2() // -> parcel, arr, length, index, length, index
+        v.ificmple(labelReturn) // -> parcel, arr, length, index
+
+        v.swap() // -> parcel, arr, index, length
+        v.dupX2() // -> parcel, length, arr, index, length
+        v.pop() // -> parcel, length, arr, index
+        v.dup2X2() // -> arr, index, parcel, length, arr, index
+        v.aload(elementSerializer.asmType) // -> arr, index, parcel, length, obj
+        v.castIfNeeded(elementSerializer.asmType)
+
+        v.swap() // -> arr, index, parcel, obj, length
+        v.dupX2() // -> arr, index, length, parcel, obj, length
+        v.pop() // -> arr, index, length, parcel, obj
+        v.swap() // -> arr, index, length, obj, parcel
+        v.dupX2() // -> arr, index, parcel, length, obj, parcel
+        v.swap() // -> arr, index, parcel, length, parcel, obj
+        elementSerializer.writeValue(v) // -> arr, index, parcel, length
+
+        v.dup2X2() // -> parcel, length, arr, index, parcel, length
+        v.pop2() // -> parcel, length, arr, index
+        v.swap() // -> parcel, length, index, arr
+        v.dupX2() // -> parcel, arr, length, index, arr
+        v.pop() // -> parcel, arr, length, index
+
+        v.aconst(1)
+        v.add(Type.INT_TYPE)
+        v.goTo(labelLoop)
+
+        v.visitLabel(labelReturn)
+        v.pop2()
+        v.pop2()
+    }
+
+    override fun readValue(v: InstructionAdapter) {
+        v.dup() // -> parcel, parcel
+        v.invokevirtual(PARCEL_TYPE.internalName, "readInt", "()I", false) // -> parcel, length
+        v.dup() // -> parcel, length, length
+        v.newarray(elementSerializer.asmType) // -> parcel, length, arr
+        v.swap() // -> parcel, arr, length
+        v.aconst(0) // -> parcel, arr, length, index
+
+        val labelLoop = Label()
+        val labelReturn = Label()
+
+        v.visitLabel(labelLoop)
+        v.dup2() // -> parcel, arr, length, index, length, index
+        v.ificmple(labelReturn) // -> parcel, arr, length, index
+
+        v.dup2X2() // -> length, index, parcel, arr, length, index
+        v.swap() // -> length, index, parcel, arr, index, length
+        v.pop() // -> length, index, parcel, arr, index
+        v.swap() // -> length, index, parcel, index, arr
+        v.dupX2() // -> length, index, arr, parcel, index, arr
+        v.swap() // -> length, index, arr, parcel, arr, index
+        v.dupX2() // -> length, index, arr, index, parcel, arr, index
+        v.dup2X1() // -> length, index, arr, index, arr, index, parcel, arr, index
+        v.pop2() // -> length, index, arr, index, arr, index, parcel
+        v.dupX2() // -> length, index, arr, index, parcel, arr, index, parcel
+
+        elementSerializer.readValue(v) // -> length, index, arr, index, parcel, arr, index, obj
+        v.castIfNeeded(elementSerializer.asmType)
+        v.astore(elementSerializer.asmType) // -> length, index, arr, index, parcel
+
+        v.swap() // -> length, index, arr, parcel, index
+        v.pop() // -> length, index, arr, parcel
+        v.swap() // -> length, index, parcel, arr
+        v.dup2X2() // -> parcel, arr, length, index, parcel, arr
+        v.pop2() // -> parcel, arr, length, index
+
+        v.aconst(1)
+        v.add(Type.INT_TYPE)
+        v.goTo(labelLoop)
+
+        v.visitLabel(labelReturn)
+        v.pop2() // -> parcel, arr
+        v.swap() // -> arr, parcel
+        v.pop() // -> arr
+    }
+}
+
+fun InstructionAdapter.castIfNeeded(targetType: Type) {
+    if (targetType.sort != Type.OBJECT && targetType.sort != Type.ARRAY) return
+    if (targetType.descriptor == "Ljava/lang/Object;") return
+    checkcast(targetType)
+}
+
+internal class CollectionParcelSerializer(override val asmType: Type, private val elementSerializer: ParcelSerializer) : ParcelSerializer {
     private val listType: Type = Type.getObjectType(when (asmType.internalName) {
         "java/util/List" -> "java/util/ArrayList"
         "java/util/Set" -> "java/util/LinkedHashSet"
         else -> asmType.internalName
     })
 
-    override fun writeValue(v: InstructionAdapter) = writeValueNullAware(v) {
+    override fun writeValue(v: InstructionAdapter) {
         val labelIteratorLoop = Label()
         val labelReturn = Label()
 
-        v.swap() // -> parcel, collection
+        v.swap() // -> collection, parcel
         v.dupX1() // -> parcel, collection, parcel
 
         // Write collection type
-        v.dup()
+        v.dup() // -> parcel, collection, parcel, parcel
         v.aconst(asmType.internalName)
-        v.invokevirtual("android/os/Parcel", "writeString", "(Ljava/lang/String;)V", false)
+        v.invokevirtual(PARCEL_TYPE.internalName, "writeString", "(Ljava/lang/String;)V", false) // -> parcel, collection, parcel
 
         // Write collection size
+        v.swap() // -> parcel, parcel, collection
+        v.dupX1() // -> parcel, collection, parcel, collection
         v.invokeinterface("java/util/Collection", "size", "()I")
-        v.invokevirtual("android/os/Parcel", "writeInt", "(I)V", false)
+        v.invokevirtual(PARCEL_TYPE.internalName, "writeInt", "(I)V", false) // -> parcel, collection
 
         // Iterate through elements
-        v.invokeinterface("java/util/Collection", "iterator", "()Ljava/util/Iterator;")
+        v.invokeinterface("java/util/Collection", "iterator", "()Ljava/util/Iterator;") // -> parcel, iterator
         v.visitLabel(labelIteratorLoop)
-        v.dup()
-        v.invokeinterface("java/util/Iterator", "hasNext", "()Z")
-        v.ifeq(labelReturn) // The list is empty
+        v.dup() // -> parcel, iterator, iterator
+        v.invokeinterface("java/util/Iterator", "hasNext", "()Z") // -> parcel, iterator, hasNext
+        v.ifeq(labelReturn) // The list is empty, -> parcel, iterator
 
-        v.dup()
-        v.invokeinterface("java/util/Iterator", "next", "()Ljava/lang/Object;")
-        v.load(1, PARCEL_TYPE)
-        v.swap()
+        v.dup() // -> parcel, iterator, iterator
+        v.invokeinterface("java/util/Iterator", "next", "()Ljava/lang/Object;") // parcel, iterator, obj
+        v.swap() // -> parcel, obj, iterator
 
-        elementSerializer.writeValue(v)
+        v.dupX2() // -> iterator, parcel, obj, iterator
+        v.pop() // -> iterator, parcel, obj
+        v.swap() // -> iterator, obj, parcel
+        v.dupX2() // -> parcel, iterator, obj, parcel
+        v.swap() // -> parcel, iterator, parcel, obj
+
+        v.castIfNeeded(elementSerializer.asmType)
+        elementSerializer.writeValue(v) // -> parcel, iterator
         v.goTo(labelIteratorLoop)
 
         v.visitLabel(labelReturn)
-        v.pop()
+        v.pop2()
     }
 
-    override fun readValue(v: InstructionAdapter) = readValueNullAware(v) {
+    override fun readValue(v: InstructionAdapter) {
         val nextLoopIteration = Label()
         val loopIsOverLabel = Label()
 
+        v.dup() // -> parcel, parcel
+        v.invokevirtual(PARCEL_TYPE.internalName, "readString", "()Ljava/lang/String;", false)
+        v.pop() // TODO use this
+
         // Read list size
-        v.load(1, PARCEL_TYPE)
         v.invokevirtual(PARCEL_TYPE.internalName, "readInt", "()I", false)
+        v.dup() // -> size, size
 
         v.anew(listType)
-        v.dup()
-
-        v.dupX2()
+        v.dupX1() // -> size, list, size, list
+        v.swap() // -> size, list, list, size
         v.invokespecial(listType.internalName, "<init>", "(I)V", false) // -> size, list
 
         v.visitLabel(nextLoopIteration)
+        v.swap() // -> list, size
         v.dupX1() // -> size, list, size
         v.ifeq(loopIsOverLabel) // -> size, list
 
@@ -108,10 +225,15 @@ internal class CollectionParcelSerializer(val asmType: Type, val elementSerializ
         v.goTo(nextLoopIteration)
 
         v.visitLabel(loopIsOverLabel)
+        v.swap()
+        v.pop()
     }
 }
 
 internal class NullAwareParcelSerializerWrapper(val delegate: ParcelSerializer) : ParcelSerializer {
+    override val asmType: Type
+        get() = delegate.asmType
+
     override fun writeValue(v: InstructionAdapter) = writeValueNullAware(v) {
         delegate.writeValue(v)
     }
@@ -122,7 +244,11 @@ internal class NullAwareParcelSerializerWrapper(val delegate: ParcelSerializer) 
 }
 
 /** write...() and get...() methods in Android should support passing `null` values. */
-internal class NullCompliantObjectParcelSerializer(val writeMethod: Method, val readMethod: Method) : ParcelSerializer {
+internal class NullCompliantObjectParcelSerializer(
+        override val asmType: Type,
+        val writeMethod: Method,
+        val readMethod: Method
+) : ParcelSerializer {
     override fun writeValue(v: InstructionAdapter) {
         v.invokevirtual(PARCEL_TYPE.internalName, writeMethod.name, writeMethod.signature, false)
     }
@@ -132,9 +258,9 @@ internal class NullCompliantObjectParcelSerializer(val writeMethod: Method, val 
     }
 }
 
-internal class BoxedPrimitiveTypeParcelSerializer private constructor(val boxedType: Type) : ParcelSerializer {
+internal class BoxedPrimitiveTypeParcelSerializer private constructor(val unboxedType: Type) : ParcelSerializer {
     companion object {
-        private val BOXED_TYPE_MAPPINGS = mapOf(
+        private val BOXED_TO_UNBOXED_TYPE_MAPPINGS = mapOf(
                 "java/lang/Boolean" to Type.BOOLEAN_TYPE,
                 "java/lang/Character" to Type.CHAR_TYPE,
                 "java/lang/Byte" to Type.BYTE_TYPE,
@@ -143,6 +269,8 @@ internal class BoxedPrimitiveTypeParcelSerializer private constructor(val boxedT
                 "java/lang/Float" to Type.FLOAT_TYPE,
                 "java/lang/Long" to Type.LONG_TYPE,
                 "java/lang/Double" to Type.DOUBLE_TYPE)
+
+        private val UNBOXED_TO_BOXED_TYPE_MAPPINGS = BOXED_TO_UNBOXED_TYPE_MAPPINGS.map { it.value to it.key }.toMap()
 
         private val BOXED_VALUE_METHOD_NAMES = mapOf(
                 "java/lang/Boolean" to "booleanValue",
@@ -154,30 +282,30 @@ internal class BoxedPrimitiveTypeParcelSerializer private constructor(val boxedT
                 "java/lang/Long" to "longValue",
                 "java/lang/Double" to "doubleValue")
 
-        private val INSTANCES = BOXED_TYPE_MAPPINGS.keys.map {
-            val type = Type.getObjectType(it)
+        private val INSTANCES = BOXED_TO_UNBOXED_TYPE_MAPPINGS.values.map { type ->
             type to BoxedPrimitiveTypeParcelSerializer(type)
         }.toMap()
 
-        fun getInstance(type: Type) = INSTANCES[type] ?: error("Unsupported type $type")
+        fun forUnboxedType(type: Type) = INSTANCES[type] ?: error("Unsupported type $type")
+        fun forBoxedType(type: Type) = INSTANCES[BOXED_TO_UNBOXED_TYPE_MAPPINGS[type.internalName]] ?: error("Unsupported type $type")
     }
 
-    val unboxedType = BOXED_TYPE_MAPPINGS[boxedType.internalName]!!
+    override val asmType = Type.getObjectType(UNBOXED_TO_BOXED_TYPE_MAPPINGS[unboxedType] ?: error("Unsupported type $unboxedType"))
     val unboxedSerializer = PrimitiveTypeParcelSerializer.getInstance(unboxedType)
-    val typeValueMethodName = BOXED_VALUE_METHOD_NAMES[boxedType.internalName]!!
+    val typeValueMethodName = BOXED_VALUE_METHOD_NAMES[asmType.internalName]!!
 
     override fun writeValue(v: InstructionAdapter) {
-        v.invokevirtual(boxedType.internalName, typeValueMethodName, "()${unboxedType.descriptor}", false)
+        v.invokevirtual(asmType.internalName, typeValueMethodName, "()${unboxedType.descriptor}", false)
         unboxedSerializer.writeValue(v)
     }
 
     override fun readValue(v: InstructionAdapter) {
         unboxedSerializer.readValue(v)
-        v.invokestatic(boxedType.internalName, "valueOf", "(${unboxedType.descriptor})${boxedType.descriptor}", false)
+        v.invokestatic(asmType.internalName, "valueOf", "(${unboxedType.descriptor})${asmType.descriptor}", false)
     }
 }
 
-internal class PrimitiveTypeParcelSerializer private constructor(val type: Type) : ParcelSerializer {
+internal class PrimitiveTypeParcelSerializer private constructor(override val asmType: Type) : ParcelSerializer {
     companion object {
         private val WRITE_METHOD_NAMES = mapOf(
                 Type.BOOLEAN_TYPE to Method("writeInt", "(I)V"),
@@ -204,8 +332,8 @@ internal class PrimitiveTypeParcelSerializer private constructor(val type: Type)
         fun getInstance(type: Type) = INSTANCES[type] ?: error("Unsupported type ${type.descriptor}")
     }
 
-    private val writeMethod = WRITE_METHOD_NAMES[type]!!
-    private val readMethod = READ_METHOD_NAMES[type]!!
+    private val writeMethod = WRITE_METHOD_NAMES[asmType]!!
+    private val readMethod = READ_METHOD_NAMES[asmType]!!
 
     override fun writeValue(v: InstructionAdapter) {
         v.invokevirtual(PARCEL_TYPE.internalName, writeMethod.name, writeMethod.signature, false)

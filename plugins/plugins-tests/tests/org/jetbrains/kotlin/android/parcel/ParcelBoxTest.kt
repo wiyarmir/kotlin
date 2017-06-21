@@ -30,4 +30,7 @@ class ParcelBoxTest : AbstractParcelBoxTest() {
     @Test fun nullableTypesSimple() = doTest("nullableTypesSimple")
     @Test fun nullableTypes() = doTest("nullableTypes")
     @Test fun listSimple() = doTest("listSimple")
+    @Test fun lists() = doTest("lists")
+    @Test fun arraySimple() = doTest("arraySimple")
+    @Test fun arrays() = doTest("arrays")
 }

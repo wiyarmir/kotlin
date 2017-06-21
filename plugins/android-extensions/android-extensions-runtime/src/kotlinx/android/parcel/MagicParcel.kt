@@ -28,7 +28,21 @@ data class MyParcelable(var data: Int): Parcelable {
 
     override fun describeContents() = 1
 
+    fun a() {
+        val max = 5
+        for (i in 0..max - 1) {
+            println(i)
+        }
+    }
+
+    fun b() {
+        val a = intArrayOf(1, 2, 3)
+        a[1] = 3
+    }
+
     override fun writeToParcel(dest: Parcel, flags: Int) {
+        dest.writeString("ABC")
+
         dest.writeInt(data)
 
         val list = ArrayList<String>(5)
@@ -44,7 +58,13 @@ data class MyParcelable(var data: Int): Parcelable {
         }
     }
 
+    fun test(): String {
+        return "A"
+    }
 
+    fun test2() {
+        val a = ArrayList<String>(5)
+    }
 
     companion object {
         @JvmField
