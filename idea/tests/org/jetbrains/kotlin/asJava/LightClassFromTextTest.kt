@@ -16,8 +16,13 @@
 
 package org.jetbrains.kotlin.asJava
 
-import com.intellij.psi.*
+import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiClassType
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiType
 import com.intellij.testFramework.LightProjectDescriptor
+import junit.framework.TestCase
 import org.jetbrains.kotlin.idea.test.KotlinLightCodeInsightFixtureTestCase
 import org.jetbrains.kotlin.idea.test.KotlinWithJdkAndRuntimeLightProjectDescriptor
 import org.jetbrains.kotlin.idea.test.PluginTestCaseBase
@@ -105,47 +110,29 @@ class LightClassFromTextTest : KotlinLightCodeInsightFixtureTestCase() {
 
     fun testAnnotationsInAnnotationsDeclarations() {
         myFixture.addClass("""
-            import java.lang.annotation.Documented;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-
-            @Retention(RetentionPolicy.RUNTIME)
-            @Target(ElementType.TYPE)
-            @Documented
-            public @interface ComponentScan {
-
-                Filter[] includeFilters() default {};
-
-                @Retention(RetentionPolicy.RUNTIME)
-                @Target({})
-                @interface Filter {
-                    Class<?>[] value() default {};
+            public @interface OuterAnnotation {
+                InnerAnnotation attribute();
+                @interface InnerAnnotation {
                 }
-
             }
         """.trimIndent())
 
-        myFixture.configureByText("KtCSApp.kt", """
-            @ComponentScan(includeFilters = arrayOf(ComponentScan.Filter(MyClass::class)))
-            open class KtCSApp
-            """.trimIndent()) as KtFile
-        myFixture.testHighlighting("ComponentScan.java", "KtCSApp.kt")
+        myFixture.configureByText("AnnotatedClass.kt", """
+            @OuterAnnotation(attribute = OuterAnnotation.InnerAnnotation())
+            open class AnnotatedClass //There is another exception if class is not open
+        """.trimIndent())
+        myFixture.testHighlighting("OuterAnnotation.java", "AnnotatedClass.kt")
 
-
-        val headerClass = listOf(myFixture.findClass("KtCSApp"))
+        val headerClass = listOf(myFixture.findClass("AnnotatedClass"))
         assertEquals(1, headerClass.size)
         val annotations = headerClass.first().annotations
         assertEquals(1, annotations.size)
         val annotation = annotations.first()
 
-        val initializers = (annotation.findDeclaredAttributeValue("includeFilters") as PsiArrayInitializerMemberValue).initializers
-        val anchors = initializers.map { i ->
-            PsiAnchor.create(i)
-        }
-        assertEquals(1, anchors.size)
+        val annotationAttributeVal = annotation.findAttributeValue("attribute") as PsiElement
 
+        TestCase.assertEquals("@OuterAnnotation.InnerAnnotation", annotationAttributeVal.text)
+        TestCase.assertEquals(TextRange(1, 1), annotationAttributeVal.textRange)
     }
 
     private fun classesFromText(text: String, fileName: String = "A.kt"): Array<out PsiClass> {
