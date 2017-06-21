@@ -1,0 +1,52 @@
+{
+  "name": "it",
+  "version": "1.0.0",
+  "description": "",
+  "main": "js/index.js",
+  "scripts": {
+    "test-jest": "jest",
+    "test-karma": "karma start --singleRun",
+    "test": "mocha --reporter js/mocha-reporter.js -r js/paths.js build/classes/test/it_test.js",
+    "test-tape": "tape js/paths.js js/tape-plugin.js js/tape-reporter.js build/classes/test/it_test.js",
+    "test-jasmine": "jasmine js/paths.js build/classes/test/it_test.js",
+    "test-qunit": "qunit -d js/qunit-reporter.js -c js/paths.js -t build/classes/test/it_test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "app-module-path": "^2.2.0",
+    "browserify": "^14.4.0",
+    "figlet": "^1.2.0",
+    "jest": "^20.0.4",
+    "karma": "^1.7.0",
+    "karma-browserify": "^5.1.1",
+    "karma-chrome-launcher": "^2.1.1",
+    "karma-mocha": "^1.3.0",
+    "karma-mocha-reporter": "^2.2.3",
+    "karma-qunit": "^1.2.1",
+    "karma-tap": "^3.1.1",
+    "mocha": "^3.4.2",
+    "qunit": "^1.0.0",
+    "tape": "^4.6.3",
+    "watchify": "^3.9.0"
+  },
+  "jest": {
+    "verbose": true,
+    "roots": [
+      "<rootDir>/build/classes/kotlin.js",
+      "<rootDir>/build/classes/kotlin-test.js",
+      "<rootDir>/build/classes/main/it_main.js",
+      "<rootDir>/build/classes/test/it_test.js"
+    ],
+    "reporters": [
+      "src/jest-reporter.js"
+    ],
+    "testRegex": "_test\\.js$",
+    "setupTestFrameworkScriptFile": "<rootDir>/src/jest-plugin.js",
+    "moduleNameMapper": {
+      "^kotlin$": "<rootDir>/build/classes/kotlin.js",
+      "^kotlin-test$": "<rootDir>/build/classes/kotlin-test.js",
+      "^it_main$": "<rootDir>/build/classes/main/it_main.js"
+    }
+  }
+}

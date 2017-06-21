@@ -1,0 +1,64 @@
+plugins {
+    id "com.moowork.node" version "1.2.0"
+}
+
+description = 'Kotlin-test integration tests for JS'
+
+apply plugin: 'kotlin-platform-js'
+
+node {
+    version = '6.11.0'
+    download = true
+}
+
+task testMocha( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotlin2Js, 'npmInstall']) {
+   args = ['run', 'test']
+   ignoreExitValue = false
+}
+
+dependencies {
+    compile project(':kotlin-test:kotlin-test-js')
+}
+
+
+sourceSets {
+    main.kotlin.srcDirs += 'src'
+    test.kotlin.srcDirs += 'test'
+}
+
+
+compileKotlin2Js {
+    kotlinOptions {
+        moduleKind = "commonjs"
+    }
+}
+
+compileTestKotlin2Js {
+    kotlinOptions {
+        moduleKind = "commonjs"
+    }
+}
+
+compileKotlin2Js.doLast {
+    configurations.compile.each { File file ->
+        copy {
+            includeEmptyDirs = false
+
+            from zipTree(file.absolutePath)
+            into "${buildDir}/classes/"
+            include { fileTreeElement ->
+                def path = fileTreeElement.path
+                path.endsWith(".js") && (path.startsWith("META-INF/resources/") || !path.startsWith("META-INF/"))
+            }
+        }
+    }
+}
+
+check.dependsOn testMocha
+
+//task cleanNodeModulesDir(type: Delete) {
+//    delete fileTree(dir: "node_modules")
+//    delete fileTree(dir: ".gradle")
+//}
+//
+//clean.dependsOn cleanNodeModulesDir
