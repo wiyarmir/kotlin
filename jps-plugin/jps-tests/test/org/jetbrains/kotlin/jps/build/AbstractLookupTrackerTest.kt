@@ -16,15 +16,11 @@
 
 package org.jetbrains.kotlin.jps.build
 
-import com.intellij.openapi.util.io.FileUtil
 import com.intellij.testFramework.UsefulTestCase
 import com.intellij.util.containers.HashMap
 import com.intellij.util.containers.StringInterner
 import org.jetbrains.kotlin.TestWithWorkingDir
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.messages.OutputMessageUtil
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.compilerRunner.*
 import org.jetbrains.kotlin.config.IncrementalCompilation
@@ -182,7 +178,7 @@ abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
             || className == "org.jetbrains.kotlin.progress.CompilationCanceledException"
             || className == "org.jetbrains.kotlin.modules.TargetId"
         }
-        val wrappedMessageCollector = MessageCollectorWrapper(messageCollector, outputItemsCollector)
+        val wrappedMessageCollector = MessageCollectorToOutputItemsCollectorAdapter(messageCollector, outputItemsCollector)
         return JpsCompilerEnvironment(paths, services, classesToLoadByParent, wrappedMessageCollector, outputItemsCollector)
     }
 
@@ -273,19 +269,6 @@ abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
             lookupsInFile?.let { checkLookupsInFile(expectedFile, actualFile, it) }
             actualFile to (lookupsInFile?.size ?: 0)
         }
-    }
-}
-
-class MessageCollectorWrapper(
-        private val delegate: MessageCollector,
-        private val outputCollector: OutputItemsCollector
-) : MessageCollector by delegate {
-    override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageLocation?) {
-        // TODO: consider adding some other way of passing input -> output mapping from compiler, e.g. dedicated service
-        OutputMessageUtil.parseOutputMessage(message)?.let {
-            outputCollector.add(it.sourceFiles, it.outputFile)
-        }
-        delegate.report(severity, message, location)
     }
 }
 
