@@ -16,9 +16,7 @@
 
 package org.jetbrains.kotlin.asJava
 
-import com.intellij.psi.PsiClass
-import com.intellij.psi.PsiClassType
-import com.intellij.psi.PsiType
+import com.intellij.psi.*
 import com.intellij.testFramework.LightProjectDescriptor
 import org.jetbrains.kotlin.idea.test.KotlinLightCodeInsightFixtureTestCase
 import org.jetbrains.kotlin.idea.test.KotlinWithJdkAndRuntimeLightProjectDescriptor
@@ -27,6 +25,7 @@ import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtPsiFactory
+import org.jetbrains.uast.java.annotations
 
 // see KtFileLightClassTest
 class LightClassFromTextTest : KotlinLightCodeInsightFixtureTestCase() {
@@ -102,6 +101,51 @@ class LightClassFromTextTest : KotlinLightCodeInsightFixtureTestCase() {
         assertEquals(0, headerClass.toLightElements().size)
         val headerFunction = contextFile.declarations.single { it is KtNamedFunction }
         assertEquals(0, headerFunction.toLightElements().size)
+    }
+
+    fun testAnnotationsInAnnotationsDeclarations() {
+        myFixture.addClass("""
+            import java.lang.annotation.Documented;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+
+            @Retention(RetentionPolicy.RUNTIME)
+            @Target(ElementType.TYPE)
+            @Documented
+            public @interface ComponentScan {
+
+                Filter[] includeFilters() default {};
+
+                @Retention(RetentionPolicy.RUNTIME)
+                @Target({})
+                @interface Filter {
+                    Class<?>[] value() default {};
+                }
+
+            }
+        """.trimIndent())
+
+        myFixture.configureByText("KtCSApp.kt", """
+            @ComponentScan(includeFilters = arrayOf(ComponentScan.Filter(MyClass::class)))
+            open class KtCSApp
+            """.trimIndent()) as KtFile
+        myFixture.testHighlighting("ComponentScan.java", "KtCSApp.kt")
+
+
+        val headerClass = listOf(myFixture.findClass("KtCSApp"))
+        assertEquals(1, headerClass.size)
+        val annotations = headerClass.first().annotations
+        assertEquals(1, annotations.size)
+        val annotation = annotations.first()
+
+        val initializers = (annotation.findDeclaredAttributeValue("includeFilters") as PsiArrayInitializerMemberValue).initializers
+        val anchors = initializers.map { i ->
+            PsiAnchor.create(i)
+        }
+        assertEquals(1, anchors.size)
+
     }
 
     private fun classesFromText(text: String, fileName: String = "A.kt"): Array<out PsiClass> {
