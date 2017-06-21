@@ -53,8 +53,6 @@ private val DECLARATION_STARTS_WITH = DECLARATION_KEYWORDS.map { it + " " }
  * removing or modifying package is not supported (that would require using full incremental cache).
  */
 abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
-
-
     // ignore KDoc like comments which starts with `/**`, example: /** text */
     private val COMMENT_WITH_LOOKUP_INFO = "/\\*[^*]+\\*/".toRegex()
 
