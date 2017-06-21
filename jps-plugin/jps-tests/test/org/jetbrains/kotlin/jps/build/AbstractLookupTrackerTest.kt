@@ -44,10 +44,6 @@ import java.util.*
 private val DECLARATION_KEYWORDS = listOf("interface", "class", "enum class", "object", "fun", "operator fun", "val", "var")
 private val DECLARATION_STARTS_WITH = DECLARATION_KEYWORDS.map { it + " " }
 
-/**
- * Tests lookup tracking. The test supports limited incremental compilation:
- * removing or modifying package is not supported (that would require using full incremental cache).
- */
 abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
     // ignore KDoc like comments which starts with `/**`, example: /** text */
     private val COMMENT_WITH_LOOKUP_INFO = "/\\*[^*]+\\*/".toRegex()
