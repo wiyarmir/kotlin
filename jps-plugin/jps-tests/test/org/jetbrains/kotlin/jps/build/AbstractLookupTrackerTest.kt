@@ -41,10 +41,10 @@ import org.jetbrains.kotlin.utils.PathUtil
 import java.io.*
 import java.util.*
 
-private val DECLARATION_KEYWORDS = listOf("interface", "class", "enum class", "object", "fun", "operator fun", "val", "var")
-private val DECLARATION_STARTS_WITH = DECLARATION_KEYWORDS.map { it + " " }
 
 abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
+    private val DECLARATION_KEYWORDS = listOf("interface", "class", "enum class", "object", "fun", "operator fun", "val", "var")
+    private val DECLARATION_STARTS_WITH = DECLARATION_KEYWORDS.map { it + " " }
     // ignore KDoc like comments which starts with `/**`, example: /** text */
     private val COMMENT_WITH_LOOKUP_INFO = "/\\*[^*]+\\*/".toRegex()
 
