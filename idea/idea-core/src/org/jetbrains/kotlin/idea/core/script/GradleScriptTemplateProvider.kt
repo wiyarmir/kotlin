@@ -68,32 +68,28 @@ class GradleScriptTemplatesProvider(project: Project): ScriptTemplatesProvider {
     }
 
     private val templatesData: TemplateDataOrError by lazy {
-        val gradleExeSettingsCopy = gradleExeSettings
-        if (gradleExeSettingsCopy?.gradleHome == null) {
-            TemplateDataOrError.Error("Unable to get Gradle home directory")
+
+        if (gradleExeSettings?.gradleHome == null) return@lazy TemplateDataOrError.Error("Unable to get Gradle home directory")
+
+        val gradleLibDir = File(gradleExeSettings!!.gradleHome, "lib").let {
+            it.takeIf { it.exists() && it.isDirectory }
+            ?: return@lazy TemplateDataOrError.Error("Invalid Gradle libraries directory $it")
         }
-        else {
-            val gradleLibDir = File(gradleExeSettingsCopy.gradleHome, "lib")
-            if (!gradleLibDir.exists() || !gradleLibDir.isDirectory) {
-                TemplateDataOrError.Error("Invalid Gradle libraries directory $gradleLibDir")
+
+        for ((template, selector) in templates2DependenciesSelectors) {
+            val cp = gradleLibDir.listFiles { f -> selector.matches(f.name) }.takeIf { it.isNotEmpty() } ?: continue
+
+            val loader = URLClassLoader(cp.map { it.toURI().toURL() }.toTypedArray(), ScriptTemplatesProvider::class.java.classLoader)
+            try {
+                val cl = loader.loadClass(template)
+                val def = KotlinScriptDefinitionFromAnnotatedTemplate(cl.kotlin, resolver, filePattern, environment)
+                return@lazy TemplateDataOrError.Data(listOf(template), cp.asIterable(), listOf(def))
             }
-            else {
-                for ((template, selector) in templates2DependenciesSelectors) {
-                    val cp = gradleLibDir.listFiles { f -> selector.matches(f.name) }
-                    if (!cp.isEmpty()) {
-                        val loader = URLClassLoader(cp.map { it.toURI().toURL() }.toTypedArray(), ScriptTemplatesProvider::class.java.classLoader)
-                        try {
-                            val cl = loader.loadClass(template)
-                            val def = KotlinScriptDefinitionFromAnnotatedTemplate(cl.kotlin, resolver, filePattern, environment)
-                            return@lazy TemplateDataOrError.Data(listOf(template), cp.asIterable(), listOf(def))
-                        }
-                        catch (e: ClassNotFoundException) {}
-                        catch (e: NoClassDefFoundError) {}
-                    }
-                }
-                TemplateDataOrError.Error("Unable to find a suitable template in the Gradle libraries directory $gradleLibDir")
-            }
+            catch (e: ClassNotFoundException) {}
+            catch (e: NoClassDefFoundError) {}
         }
+
+        return@lazy TemplateDataOrError.Error("Unable to find a suitable template in the Gradle libraries directory $gradleLibDir")
     }
 
     override val templateClassNames: Iterable<String> get() = when(templatesData) {
