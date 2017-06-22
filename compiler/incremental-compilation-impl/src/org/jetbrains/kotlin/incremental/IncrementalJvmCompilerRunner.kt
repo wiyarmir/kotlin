@@ -45,8 +45,6 @@ import org.jetbrains.kotlin.js.facade.K2JSTranslator
 import org.jetbrains.kotlin.js.facade.MainCallParameters
 import org.jetbrains.kotlin.js.facade.TranslationResult
 import org.jetbrains.kotlin.js.facade.TranslationUnit
-import org.jetbrains.kotlin.js.incremental.IncrementalJsService
-import org.jetbrains.kotlin.js.incremental.IncrementalJsServiceImpl
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.modules.TargetId
 import org.jetbrains.kotlin.name.FqName

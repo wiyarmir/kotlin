@@ -87,6 +87,9 @@ public class K2JSCompilerArguments extends CommonCompilerArguments {
     @Argument(value = "-Xfriend-modules-disabled", description = "Disable internal declaration export")
     public boolean friendModulesDisabled;
 
+    @Argument(value = "-Xincremental-data", description = "Path to directory for persisting incremental data")
+    public String incrementalData;
+
     @Argument(
             value = "-Xfriend-modules",
             valueDescription = "<path>",
