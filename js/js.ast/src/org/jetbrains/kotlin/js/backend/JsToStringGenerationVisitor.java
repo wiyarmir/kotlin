@@ -275,7 +275,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
     @Override
     public void visitBlock(@NotNull JsBlock x) {
-        printJsBlock(x, true);
+        printJsBlock(x, true, null);
     }
 
     @Override
@@ -605,8 +605,6 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
     @Override
     public void visitFunction(@NotNull JsFunction x) {
-        pushSourceInfo(x.getSource());
-
         p.print(CHARS_FUNCTION);
         space();
         if (x.getName() != null) {
@@ -626,12 +624,12 @@ public class JsToStringGenerationVisitor extends JsVisitor {
         lineBreakAfterBlock = false;
 
         sourceLocationConsumer.pushSourceInfo(null);
-        accept(x.getBody());
+        printJsBlock(x.getBody(), true, x.getSource());
+        pushSourceInfo(x.getSource());
+        popSourceInfo();
         sourceLocationConsumer.popSourceInfo();
 
         needSemi = true;
-
-        popSourceInfo();
     }
 
     @Override
@@ -1111,7 +1109,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
         }
     }
 
-    private void printJsBlock(JsBlock x, boolean finalNewline) {
+    private void printJsBlock(JsBlock x, boolean finalNewline, Object finalBraceLocation) {
         if (!lineBreakAfterBlock) {
             finalNewline = false;
             lineBreakAfterBlock = true;
@@ -1184,7 +1182,15 @@ public class JsToStringGenerationVisitor extends JsVisitor {
         if (needBraces) {
             // _blockClose() modified
             p.indentOut();
+
+            if (finalBraceLocation != null) {
+                pushSourceInfo(finalBraceLocation);
+            }
             p.print('}');
+            if (finalBraceLocation != null) {
+                popSourceInfo();
+            }
+
             if (finalNewline) {
                 newlineOpt();
             }
