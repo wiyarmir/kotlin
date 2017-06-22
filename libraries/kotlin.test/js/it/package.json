@@ -6,8 +6,8 @@
   "scripts": {
     "test-jest": "jest",
     "test-karma": "karma start --singleRun",
-    "test": "mocha --reporter js/mocha-reporter.js -r js/paths.js build/classes/test/it_test.js",
-    "test-tape": "tape js/paths.js js/tape-plugin.js js/tape-reporter.js build/classes/test/it_test.js",
+    "test-mocha": "mocha --reporter js/mocha-reporter.js -r js/paths.js build/classes/test/it_test.js",
+    "test": "tape js/paths.js js/tape-reporter.js js/tape-plugin.js build/classes/test/it_test.js",
     "test-jasmine": "jasmine js/paths.js build/classes/test/it_test.js",
     "test-qunit": "qunit -d js/qunit-reporter.js -c js/paths.js -t build/classes/test/it_test.js"
   },
@@ -28,6 +28,7 @@
     "mocha": "^3.4.2",
     "qunit": "^1.0.0",
     "tape": "^4.6.3",
+    "tape-catch": "^1.0.6",
     "watchify": "^3.9.0"
   },
   "jest": {
@@ -39,10 +40,9 @@
       "<rootDir>/build/classes/test/it_test.js"
     ],
     "reporters": [
-      "src/jest-reporter.js"
+      "<rootDir>/js/jest-reporter.js"
     ],
     "testRegex": "_test\\.js$",
-    "setupTestFrameworkScriptFile": "<rootDir>/src/jest-plugin.js",
     "moduleNameMapper": {
       "^kotlin$": "<rootDir>/build/classes/kotlin.js",
       "^kotlin-test$": "<rootDir>/build/classes/kotlin-test.js",

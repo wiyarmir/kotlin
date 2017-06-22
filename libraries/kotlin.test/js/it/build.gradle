@@ -12,9 +12,20 @@ node {
 }
 
 task testMocha( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotlin2Js, 'npmInstall']) {
-   args = ['run', 'test']
+   args = ['run', 'test-mocha']
    ignoreExitValue = false
 }
+
+task testJest( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotlin2Js, 'npmInstall']) {
+    args = ['run', 'test-jest']
+    ignoreExitValue = false
+}
+
+task testQunit( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotlin2Js, 'npmInstall']) {
+    args = ['run', 'test']
+    ignoreExitValue = false
+}
+
 
 dependencies {
     compile project(':kotlin-test:kotlin-test-js')

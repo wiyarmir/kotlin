@@ -179,6 +179,32 @@ enum class DefaultAdapters : FrameworkAdapter {
         override fun ftest(name: String, testFn: () -> Unit) {
             js("it.only")(name, testFn)
         }
+    },
+
+    BARE {
+        override fun suite(name: String, suiteFn: () -> Unit) {
+            suiteFn()
+        }
+
+        override fun xsuite(name: String, suiteFn: () -> Unit) {
+            // Do nothing
+        }
+
+        override fun fsuite(name: String, suiteFn: () -> Unit) {
+            suiteFn()
+        }
+
+        override fun test(name: String, testFn: () -> Unit) {
+            testFn()
+        }
+
+        override fun xtest(name: String, testFn: () -> Unit) {
+            // Do nothing
+        }
+
+        override fun ftest(name: String, testFn: () -> Unit) {
+            testFn()
+        }
     };
 
     companion object {
@@ -187,7 +213,7 @@ enum class DefaultAdapters : FrameworkAdapter {
             js("typeof describe === 'function' && typeof it === 'function'") -> {
                 if (js("typeof xit === 'function'")) JASMINE else MOCHA
             }
-            else -> throw Error("Couldn't detect testing framework")
+            else -> BARE
         }
 
         val NAME_TO_ADAPTER = mapOf(

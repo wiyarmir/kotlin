@@ -6,20 +6,38 @@ kotlin_test.setAdapter({
         fn();
     },
 
+    xsuite: function (name, fn) {
+        // Do nothing
+    },
+
+    fsuite: function (name, fn) {
+        fn();
+    },
+
     test: function (name, fn) {
-        tape(name, function(t) {
-            kotlin_test.setOkFun(function(actual, message) {
-                t.ok(actual, message);
+        tape(name, function (t) {
+            kotlin_test.setAssertHook(function (result, expected, actual, lazyMessage) {
+                t.ok(result, lazyMessage());
             });
             fn();
             t.end();
         });
     },
 
-    ignore: function (name, fn) {
-        tape.skip(name, function(t) {
-            kotlin_test.setOkFun(function(actual, message) {
-                t.ok(actual, message);
+    xtest: function (name, fn) {
+        tape.skip(name, function (t) {
+            kotlin_test.setAssertHook(function (result, expected, actual, lazyMessage) {
+                t.ok(result, lazyMessage());
+            });
+            fn();
+            t.end();
+        });
+    },
+
+    ftest: function (name, fn) {
+        tape(name, function (t) {
+            kotlin_test.setAssertHook(function (result, expected, actual, lazyMessage) {
+                t.ok(result, lazyMessage());
             });
             fn();
             t.end();
