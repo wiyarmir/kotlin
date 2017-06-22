@@ -148,7 +148,9 @@ class LineCollector : RecursiveJsVisitor() {
 
     override fun visitTry(x: JsTry) {
         withStatement(x) {
-            super.visitTry(x)
+            x.tryBlock.acceptChildren(this)
+            x.catches?.forEach { accept(it) }
+            x.finallyBlock?.acceptChildren(this)
         }
     }
 
