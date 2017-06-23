@@ -24,17 +24,6 @@ interface IncrementalDataProvider {
     val packagePartsMetadata: List<ByteArray>
     /** gets non-dirty package parts binary trees from previous compilation */
     val binaryTrees: List<ByteArray>
-
-    companion object {
-        val DO_NOTHING = object : IncrementalDataProvider {
-            override val packagePartsMetadata: List<ByteArray>
-                get() = emptyList()
-            override val binaryTrees: List<ByteArray>
-                get() = emptyList()
-            override val headerMetadata: ByteArray
-                get() = ByteArray(0)
-        }
-    }
 }
 
 class IncrementalDataProviderImpl(

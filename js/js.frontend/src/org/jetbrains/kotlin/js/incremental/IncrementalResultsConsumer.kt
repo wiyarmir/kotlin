@@ -23,32 +23,24 @@ interface IncrementalResultsConsumer {
     fun processHeader(headerMetadata: ByteArray)
     /** processes new package part metadata and binary tree for compiled source file */
     fun processPackagePart(sourceFile: File, packagePartMetadata: ByteArray, binaryAst: ByteArray)
-
-    companion object {
-        val DO_NOTHING = object : IncrementalResultsConsumer {
-            override fun processHeader(headerMetadata: ByteArray) {
-            }
-
-            override fun processPackagePart(sourceFile: File, packagePartMetadata: ByteArray, binaryAst: ByteArray) {
-            }
-        }
-    }
 }
 
 class IncrementalResultsConsumerImpl : IncrementalResultsConsumer {
     var headerMetadata: ByteArray? = null
         private set
 
-    private val packageParts = arrayListOf<PackagePartData>()
+    private val _packageParts = arrayListOf<PackagePartData>()
+    val packageParts: List<PackagePartData>
+        get() = _packageParts
 
     override fun processHeader(headerMetadata: ByteArray) {
         this.headerMetadata = headerMetadata
     }
 
     override fun processPackagePart(sourceFile: File, packagePartMetadata: ByteArray, binaryAst: ByteArray) {
-        packageParts.add(PackagePartData(sourceFile, packagePartMetadata, binaryAst))
+        _packageParts.add(PackagePartData(sourceFile, packagePartMetadata, binaryAst))
     }
 
-    class PackagePartData(val sourceFile: File, val proto: ByteArray, val binaryAst: ByteArray)
+    data class PackagePartData(val sourceFile: File, val proto: ByteArray, val binaryAst: ByteArray)
 }
 

@@ -51,6 +51,7 @@ import org.jetbrains.kotlin.js.config.JsConfig;
 import org.jetbrains.kotlin.js.facade.K2JSTranslator;
 import org.jetbrains.kotlin.js.facade.MainCallParameters;
 import org.jetbrains.kotlin.js.facade.TranslationResult;
+import org.jetbrains.kotlin.js.facade.TranslationUnit;
 import org.jetbrains.kotlin.js.facade.exceptions.TranslationException;
 import org.jetbrains.kotlin.js.incremental.IncrementalDataProvider;
 import org.jetbrains.kotlin.js.incremental.IncrementalResultsConsumer;
@@ -62,6 +63,7 @@ import org.jetbrains.kotlin.utils.PathUtil;
 import org.jetbrains.kotlin.utils.StringsKt;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -103,6 +105,18 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
             @NotNull JsConfig config
     ) throws TranslationException {
         K2JSTranslator translator = new K2JSTranslator(config);
+        IncrementalDataProvider incrementalDataProvider = config.getConfiguration().get(JSConfigurationKeys.INCREMENTAL_DATA_PROVIDER);
+        if (incrementalDataProvider != null) {
+            List<TranslationUnit> translationUnits = new ArrayList<>();
+            for (KtFile ktFile : allKotlinFiles) {
+                translationUnits.add(new TranslationUnit.SourceFile(ktFile));
+            }
+            for (byte[] binaryTree : incrementalDataProvider.getBinaryTrees()) {
+                translationUnits.add(new TranslationUnit.BinaryAst(binaryTree));
+            }
+            return translator.translateUnits(translationUnits, mainCallParameters, jsAnalysisResult);
+        }
+
         return translator.translate(allKotlinFiles, mainCallParameters, jsAnalysisResult);
     }
 
