@@ -149,7 +149,6 @@ private fun validateSourceMap(reader: Reader, sourceMap: SourceMap) {
             }
             else {
                 when (line.substring(0, segment.generatedColumnNumber).trim()) {
-                    "else",
                     "" -> "  "
                     else -> "@@"
                 }
