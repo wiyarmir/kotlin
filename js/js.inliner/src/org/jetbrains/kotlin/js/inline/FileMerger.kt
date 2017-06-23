@@ -22,10 +22,7 @@ import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.facade.SourceMapBuilderConsumer
 import org.jetbrains.kotlin.js.inline.util.fixForwardNameReferences
 import org.jetbrains.kotlin.js.parser.parse
-import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapError
-import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapLocationRemapper
-import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapParser
-import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapSuccess
+import org.jetbrains.kotlin.js.parser.sourcemaps.*
 import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver
 import org.jetbrains.kotlin.js.sourceMap.SourceMap3Builder
 import org.jetbrains.kotlin.js.util.TextOutputImpl
@@ -33,6 +30,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.io.File
+import java.io.Reader
+import java.io.StringReader
 
 fun main(args: Array<String>) {
     val program = JsProgram()
@@ -97,14 +96,7 @@ fun main(args: Array<String>) {
 
     sourceMapFile.writeText(sourceMapJson.toString(2))
 
-    val sourceMap = (sourceMapFile.reader().use { SourceMapParser.parse(it) } as SourceMapSuccess).value
-    for ((index, group) in sourceMap.groups.withIndex()) {
-        print("${index + 1}:")
-        for (segment in group.segments) {
-            print(" ${segment.generatedColumnNumber + 1},${segment.sourceLineNumber + 1}")
-        }
-        println()
-    }
+    validateSourceMap(StringReader(programText), (SourceMapParser.parse(StringReader(sourceMapContent)) as SourceMapSuccess).value)
 }
 
 private fun List<JsStatement>.createInsertionPlace(): JsBlock {
@@ -144,5 +136,31 @@ private fun collectFiles(rootFile: File, target: MutableList<File>) {
     }
     else if (rootFile.extension == "js") {
         target += rootFile
+    }
+}
+
+private fun validateSourceMap(reader: Reader, sourceMap: SourceMap) {
+    var index = 0
+    reader.forEachLine { line ->
+        val status = if (line.isNotBlank()) {
+            val segment = sourceMap.groups.getOrNull(index)?.segments.orEmpty().firstOrNull()
+            if (segment == null) {
+                "\$\$"
+            }
+            else {
+                when (line.substring(0, segment.generatedColumnNumber).trim()) {
+                    "else",
+                    "" -> "  "
+                    else -> "@@"
+                }
+            }
+        }
+        else {
+            "  "
+        }
+
+        println("/* $status */ $line")
+
+        ++index
     }
 }
