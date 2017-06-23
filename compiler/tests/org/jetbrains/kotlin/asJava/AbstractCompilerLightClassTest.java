@@ -31,20 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 public abstract class AbstractCompilerLightClassTest extends KotlinMultiFileTestWithJava<Void, Void> {
-    private KotlinCoreEnvironment environment;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        environment = createEnvironment();
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        environment = null;
-        super.tearDown();
-    }
-
     @NotNull
     @Override
     protected ConfigurationKind getConfigurationKind() {
@@ -66,6 +52,7 @@ public abstract class AbstractCompilerLightClassTest extends KotlinMultiFileTest
 
     @Override
     protected void doMultiFileTest(File file, Map<String, ModuleAndDependencies> modules, List<Void> files) throws IOException {
+        KotlinCoreEnvironment environment = createEnvironment();
         File expectedFile = KotlinTestUtils.replaceExtension(file, "java");
         LightClassTestCommon.INSTANCE.testLightClass(expectedFile, file, s -> {
             try {
