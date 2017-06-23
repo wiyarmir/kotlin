@@ -61,7 +61,9 @@ class LineCollector : RecursiveJsVisitor() {
 
     override fun visitExpressionStatement(x: JsExpressionStatement) {
         withStatement(x) {
-            super.visitExpressionStatement(x)
+            handleNodeLocation(x.expression)
+            lineNumbersByStatement[x]?.add(-1)
+            x.expression.acceptChildren(this)
         }
     }
 
@@ -117,12 +119,16 @@ class LineCollector : RecursiveJsVisitor() {
 
     override fun visitReturn(x: JsReturn) {
         withStatement(x) {
+            handleNodeLocation(x)
+            lineNumbersByStatement[x]?.add(-1)
             super.visitReturn(x)
         }
     }
 
     override fun visitVars(x: JsVars) {
         withStatement(x) {
+            handleNodeLocation(x)
+            lineNumbersByStatement[x]?.add(-1)
             super.visitVars(x)
         }
     }
@@ -136,6 +142,8 @@ class LineCollector : RecursiveJsVisitor() {
 
     override fun visitThrow(x: JsThrow) {
         withStatement(x) {
+            handleNodeLocation(x)
+            lineNumbersByStatement[x]?.add(-1)
             super.visitThrow(x)
         }
     }
