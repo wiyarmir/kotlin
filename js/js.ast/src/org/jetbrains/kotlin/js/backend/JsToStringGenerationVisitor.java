@@ -496,7 +496,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
     @Override
     public void visitExpressionStatement(@NotNull JsExpressionStatement x) {
         Object source = x.getSource();
-        if (source == null) {
+        if (source == null && !(x.getExpression() instanceof JsFunction)) {
             source = x.getExpression().getSource();
         }
         pushSourceInfo(source);
@@ -625,8 +625,6 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
         sourceLocationConsumer.pushSourceInfo(null);
         printJsBlock(x.getBody(), true, x.getSource());
-        pushSourceInfo(x.getSource());
-        popSourceInfo();
         sourceLocationConsumer.popSourceInfo();
 
         needSemi = true;
