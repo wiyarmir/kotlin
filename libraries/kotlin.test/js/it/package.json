@@ -8,7 +8,7 @@
     "test-karma": "karma start --singleRun",
     "test-mocha": "mocha --reporter js/mocha-reporter.js -r js/paths.js build/classes/test/it_test.js",
     "test": "tape js/paths.js js/tape-reporter.js js/tape-plugin.js build/classes/test/it_test.js",
-    "test-jasmine": "jasmine js/paths.js build/classes/test/it_test.js",
+    "test-jasmine": "jasmine js/paths.js js/jasmine-reporter.js build/classes/test/it_test.js",
     "test-qunit": "qunit -d js/qunit-reporter.js -c js/paths.js -t build/classes/test/it_test.js"
   },
   "author": "",
@@ -39,9 +39,7 @@
       "<rootDir>/build/classes/main/it_main.js",
       "<rootDir>/build/classes/test/it_test.js"
     ],
-    "reporters": [
-      "<rootDir>/js/jest-reporter.js"
-    ],
+    "testResultsProcessor": "<rootDir>/js/jest-reporter.js",
     "testRegex": "_test\\.js$",
     "moduleNameMapper": {
       "^kotlin$": "<rootDir>/build/classes/kotlin.js",

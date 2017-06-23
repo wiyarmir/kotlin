@@ -1,16 +1,19 @@
 var test = require('tape-catch');
 var path = require('path');
 
+
+
 process.on('exit', function() {
-    console.log("On exit");
+
+    // TODO: set correct exit code.
     process.exit(0);
 });
 
 
-var stream = test.createStream(/*{ objectMode: true }*/);
+var stream = test.createStream({ objectMode: true });
 
 stream.on('data', function (row) {
-    // console.log(JSON.stringify(row))
+    console.log(JSON.stringify(row))
 });
 
 stream.on('skip', function(res) {

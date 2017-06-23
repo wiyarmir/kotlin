@@ -21,6 +21,12 @@ task testJest( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotli
     ignoreExitValue = false
 }
 
+task testJasmine( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotlin2Js, 'npmInstall']) {
+    args = ['run', 'test-jasmine']
+    ignoreExitValue = false
+}
+
+
 task testQunit( type: NpmTask, dependsOn: [compileTestKotlin2Js, compileTestKotlin2Js, 'npmInstall']) {
     args = ['run', 'test']
     ignoreExitValue = false
@@ -66,6 +72,9 @@ compileKotlin2Js.doLast {
 }
 
 check.dependsOn testMocha
+check.dependsOn testJasmine
+check.dependsOn testJest
+check.dependsOn testQunit
 
 //task cleanNodeModulesDir(type: Delete) {
 //    delete fileTree(dir: "node_modules")
